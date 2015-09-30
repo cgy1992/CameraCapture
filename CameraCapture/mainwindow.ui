@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>400</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>CameraCapture</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QGridLayout" name="gridLayout" columnstretch="1,0">
+    <property name="horizontalSpacing">
+     <number>12</number>
+    </property>
+    <item row="0" column="0" rowspan="5">
+     <widget class="QCameraViewfinder" name="viewfinder" native="true"/>
+    </item>
+    <item row="0" column="1">
+     <widget class="QPushButton" name="recordButton">
+      <property name="minimumSize">
+       <size>
+        <width>192</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>RECORD</string>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>Cameras</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QListWidget" name="cameraListWidget"/>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="label_2">
+      <property name="text">
+       <string>Microphones</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QListWidget" name="micListWidget"/>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QCameraViewfinder</class>
+   <extends>QWidget</extends>
+   <header location="global">QCameraViewfinder</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="cameracapture.qrc"/>
+ </resources>
+ <connections/>
+</ui>
