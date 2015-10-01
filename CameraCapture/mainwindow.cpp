@@ -48,9 +48,18 @@ void MainWindow::toggleRecord()
 	else
 	{
 		QString filename = QFileDialog::getSaveFileName(this, QString(), QString(), "MPEG4 files (*.mp4)");
-		if (!filename.isEmpty())
+		if (filename.isEmpty())
 		{
-			recorder.start(selectedCamera, filename);
+			ui.recordButton->setChecked(false);
+			return;
+		}
+
+		QAudioDeviceInfo audioDeviceInfo = QAudioDeviceInfo::availableDevices(QAudio::AudioInput)[ui.micListWidget->currentRow()];
+		qDebug() << audioDeviceInfo.deviceName();
+		
+		if (!recorder.start(selectedCamera, audioDeviceInfo, filename))
+		{
+			ui.recordButton->setChecked(false);
 		}
 	}
 }
