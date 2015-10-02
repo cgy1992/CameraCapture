@@ -131,7 +131,7 @@ HRESULT setupAudioStream(IMFSinkWriter *writer, DWORD *streamIndex)
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 12000);
+		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 20000);
 	}
 	if (SUCCEEDED(hr))
 	{
@@ -319,6 +319,7 @@ bool Recorder::start(QCamera * camera, QAudioDeviceInfo audioDeviceInfo, const Q
 			if (writer)
 			{
 				writeFrame(videoStreamIndex, image);
+				qDebug() << qint64(audioClock)/10/1000 << videoClock/10/1000;
 			}
 		});
 		recording = true;
@@ -336,7 +337,6 @@ bool Recorder::start(QCamera * camera, QAudioDeviceInfo audioDeviceInfo, const Q
 			QIODevice * audioDevice = audioInput->start();
 			connect(audioDevice, &QIODevice::readyRead, this, [=](){
 				audioBuffer += audioDevice->readAll();
-				qDebug() << "ready read" << audioBuffer.size();
 				while (audioBuffer.size() > 1024)
 				{
 					QByteArray data = audioBuffer.left(1024);
@@ -527,7 +527,8 @@ void Recorder::writeAudio(int streamIndex, QByteArray sound)
 		}
 	}
 
-	static qreal duration = 1024 * 1000 * 10 / 44.100;
+	// 512 = 1024 / 2 bytes per sample
+	static qreal duration = 512 * 1000 * 10 / 44.100;
 
 	if (SUCCEEDED(hr))
 	{
