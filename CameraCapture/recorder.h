@@ -2,10 +2,13 @@
 
 #include <QObject>
 #include <QCamera>
-#include <QCameraImageCapture>
 #include <QAudioDeviceInfo>
-#include <QAudioInput>
 
+#include <QAudioInput>
+#include <QCameraImageCapture>
+#include <QByteArray>
+#include <atlbase.h>
+#include <memory>
 class IMFSinkWriter;
 
 class Recorder : public QObject
@@ -17,20 +20,19 @@ public:
 	~Recorder();
 
 public slots:
-	bool start(QCamera * camera, QAudioDeviceInfo audioDeviceInfo, const QString & filename);
+	bool start(QCamera * camera, const QAudioDeviceInfo & audioDeviceInfo, const QString & filename);
 	void stop();
 	bool isRecording() const;
 
 private:
-	void writeFrame(int streamIndex, const QImage & image);
-	void writeAudio(int streamIndex, QByteArray sound);
+	void writeVideoFrame(int streamIndex, const QImage & image);
+	void writeAudioFrame(int streamIndex, const QByteArray & sound);
 
 private:
-	IMFSinkWriter * writer = nullptr;
-	QCameraImageCapture * imageCapture = nullptr;
-	QAudioInput * audioInput = nullptr;
+	CComPtr<IMFSinkWriter> writer;
+	std::unique_ptr<QCameraImageCapture> imageCapture;
+	std::unique_ptr<QAudioInput> audioInput;
 	bool recording = false;
-	qint64 startTimestamp;
 	qreal audioClock;
 	qint64 videoClock;
 	QByteArray audioBuffer;

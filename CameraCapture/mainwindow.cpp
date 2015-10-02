@@ -54,12 +54,21 @@ void MainWindow::toggleRecord()
 			return;
 		}
 
-		QAudioDeviceInfo audioDeviceInfo = QAudioDeviceInfo::availableDevices(QAudio::AudioInput)[ui.micListWidget->currentRow()];
-		qDebug() << audioDeviceInfo.deviceName();
+		QList<QAudioDeviceInfo> availableDevices = QAudioDeviceInfo::availableDevices(QAudio::AudioInput);
+		QAudioDeviceInfo audioDeviceInfo;
+
+		int selectedMic = ui.micListWidget->currentRow();
+		if (selectedMic < ui.micListWidget->count() && selectedMic >= 0)
+		{
+			audioDeviceInfo = availableDevices[selectedMic];
+		}
 		
 		if (!recorder.start(selectedCamera, audioDeviceInfo, filename))
 		{
 			ui.recordButton->setChecked(false);
 		}
 	}
+
+	ui.cameraListWidget->setDisabled(recorder.isRecording());
+	ui.micListWidget->setDisabled(recorder.isRecording());
 }
