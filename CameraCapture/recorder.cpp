@@ -15,18 +15,39 @@
 #include <mfreadwrite.h>
 #include <Wmcodecdsp.h>
 
+namespace
+{
+	// \todo constants should be parameters of Recorder class
+
+	static const QSize VideoResolution(320, 240);
+	static const int VideoBitrate = 2500000;
+	static const int FramesPerSecond = 30;
+
+	static const int AudioBitrate = 20000;
+	static const int AudioSampleRate = 44100;
+	static const int AudioSampleSize = 16;
+	static const int AudioChannelCount = 2;
+}
+
 class RecorderPrivate
 {
 	Q_DECLARE_PUBLIC(Recorder)
 	Recorder * q_ptr;
 
 	CComPtr<IMFSinkWriter> writer;
+	QCamera * camera = nullptr;
+	QAudioDeviceInfo audioDeviceInfo;
+	bool recording = false;
 	std::unique_ptr<QCameraImageCapture> imageCapture;
 	std::unique_ptr<QAudioInput> audioInput;
-	bool recording = false;
+	DWORD videoStreamIndex = -1;
+	DWORD audioStreamIndex = -1;
 	qreal audioClock = 0;
 	qreal videoClock = 0;
 	QByteArray audioBuffer;
+	QAudioFormat audioFormat;
+	qreal audioFrameDuration;
+	qreal videoFrameDuration;
 	ImageFilter * imageFilter = nullptr;
 };
 
@@ -50,17 +71,17 @@ HRESULT setupVideoStream(IMFSinkWriter *writer, DWORD *streamIndex)
 
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AVG_BITRATE, 2500000);
+		hr = outputMediaType->SetUINT32(MF_MT_AVG_BITRATE, VideoBitrate);
 	}
 
 	if (SUCCEEDED(hr))
 	{
-		hr = MFSetAttributeSize(outputMediaType, MF_MT_FRAME_SIZE, 320, 240);
+		hr = MFSetAttributeSize(outputMediaType, MF_MT_FRAME_SIZE, VideoResolution.width(), VideoResolution.height());
 	}
 
 	if (SUCCEEDED(hr))
 	{
-		hr = MFSetAttributeRatio(outputMediaType, MF_MT_FRAME_RATE, 30, 1);
+		hr = MFSetAttributeRatio(outputMediaType, MF_MT_FRAME_RATE, FramesPerSecond, 1);
 	}
 
 	if (SUCCEEDED(hr))
@@ -92,15 +113,7 @@ HRESULT setupVideoStream(IMFSinkWriter *writer, DWORD *streamIndex)
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = MFSetAttributeSize(inputMediaType, MF_MT_FRAME_SIZE, 320, 240);
-	}
-	if (SUCCEEDED(hr))
-	{
-		hr = MFSetAttributeRatio(inputMediaType, MF_MT_FRAME_RATE, 30, 1);
-	}
-	if (SUCCEEDED(hr))
-	{
-		hr = MFSetAttributeRatio(inputMediaType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+		hr = MFSetAttributeSize(inputMediaType, MF_MT_FRAME_SIZE, VideoResolution.width(), VideoResolution.height());
 	}
 	if (SUCCEEDED(hr))
 	{
@@ -110,7 +123,7 @@ HRESULT setupVideoStream(IMFSinkWriter *writer, DWORD *streamIndex)
 	return hr;
 }
 
-HRESULT setupAudioStream(IMFSinkWriter *writer, UINT32 channelCount, UINT32 bitsPerSample, UINT32 sampleRate, DWORD *streamIndex)
+HRESULT setupAudioStream(IMFSinkWriter *writer, const QAudioFormat & audioFormat, DWORD *streamIndex)
 {
 	CComPtr<IMFMediaType> outputMediaType;
 
@@ -126,19 +139,19 @@ HRESULT setupAudioStream(IMFSinkWriter *writer, UINT32 channelCount, UINT32 bits
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 20000);
+		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, AudioBitrate);
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, bitsPerSample);
+		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, audioFormat.sampleSize());
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, channelCount);
+		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, audioFormat.channelCount());
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, sampleRate);
+		hr = outputMediaType->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, audioFormat.sampleRate());
 	}
 	if (SUCCEEDED(hr))
 	{
@@ -160,15 +173,15 @@ HRESULT setupAudioStream(IMFSinkWriter *writer, UINT32 channelCount, UINT32 bits
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, channelCount);
+		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_NUM_CHANNELS, audioFormat.channelCount());
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, sampleRate);
+		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, audioFormat.sampleRate());
 	}
 	if (SUCCEEDED(hr))
 	{
-		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, bitsPerSample);
+		hr = inputMediaType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, audioFormat.sampleSize());
 	}
 	if (SUCCEEDED(hr))
 	{
@@ -176,6 +189,38 @@ HRESULT setupAudioStream(IMFSinkWriter *writer, UINT32 channelCount, UINT32 bits
 	}
 
 	return hr;
+}
+
+HRESULT createWriter(QString url, IMFSinkWriter ** writer)
+{
+	HRESULT hr = S_OK;
+
+	CComPtr<IMFAttributes> writerAttr;
+	hr = MFCreateAttributes(&writerAttr, 2);
+	if (FAILED(hr))
+	{
+		return hr;
+	}
+
+	hr = writerAttr->SetGUID(MF_TRANSCODE_CONTAINERTYPE, MFTranscodeContainerType_MPEG4);
+	if (FAILED(hr))
+	{
+		return hr;
+	}
+
+	hr = writerAttr->SetUINT32(MF_SINK_WRITER_DISABLE_THROTTLING, TRUE);
+	if (FAILED(hr))
+	{
+		return hr;
+	}
+
+	hr = MFCreateSinkWriterFromURL(url.toStdWString().c_str(), NULL, writerAttr, writer);
+	if (FAILED(hr))
+	{
+		return hr;
+	}
+
+	return S_OK;
 }
 
 Recorder::Recorder(QObject *parent)
@@ -211,7 +256,7 @@ Recorder::~Recorder()
 	MFShutdown();
 }
 
-bool Recorder::start(QCamera * camera, const QAudioDeviceInfo & audioDeviceInfo, const QString & filename)
+bool Recorder::start(const QString & filename)
 {
 	Q_D(Recorder);
 	if (d->recording)
@@ -220,52 +265,35 @@ bool Recorder::start(QCamera * camera, const QAudioDeviceInfo & audioDeviceInfo,
 		return false;
 	}
 
+	if (!d->camera)
+	{
+		qWarning() << "Please, setup camera with Recorder::setCamera before calling Recorder::start";
+		return false;
+	}
+
 	HRESULT hr;
 
-	CComPtr<IMFAttributes> writerAttr;
-	hr = MFCreateAttributes(&writerAttr, 2);
-	if (FAILED(hr))
-	{
-		qWarning() << "MFCreateAttributes writer failed" << hr;
-		return false;
-	}
-
-	hr = writerAttr->SetGUID(MF_TRANSCODE_CONTAINERTYPE, MFTranscodeContainerType_MPEG4);
-	if (FAILED(hr))
-	{
-		qWarning() << "writerAttr->SetGUID MF_TRANSCODE_CONTAINERTYPE failed" << hr;
-		return false;
-	}
-
-	hr = writerAttr->SetUINT32(MF_SINK_WRITER_DISABLE_THROTTLING, TRUE);
-	if (FAILED(hr))
-	{
-		qWarning() << "writerAttr->SetUINT32 MF_SINK_WRITER_DISABLE_THROTTLING failed" << hr;
-		return false;
-	}
-
 	CComPtr<IMFSinkWriter> writer;
-	hr = MFCreateSinkWriterFromURL(filename.toStdWString().c_str(), NULL, writerAttr, &writer);
-	if (FAILED(hr))
-	{
-		qWarning() << "MFCreateSinkWriterFromURL failed" << hr;
-		return false;
-	}
+	hr = createWriter(filename, &writer);
 	
-	DWORD videoStreamIndex;
-	hr = setupVideoStream(writer, &videoStreamIndex);
+	hr = setupVideoStream(writer, &d->videoStreamIndex);
 	if (FAILED(hr))
 	{
 		qWarning() << "setupVideoStream failed" << hr;
 		return false;
 	}
 
-	DWORD audioStreamIndex;
-	int audioChannelCount = 2;
+	QAudioFormat audioFormat;
+	audioFormat.setSampleRate(AudioSampleRate);
+	audioFormat.setSampleSize(AudioSampleSize);
+	audioFormat.setChannelCount(AudioChannelCount);
+	audioFormat.setSampleType(QAudioFormat::SignedInt);
+	audioFormat.setCodec("audio/pcm");
+	d->audioFormat = d->audioDeviceInfo.nearestFormat(audioFormat);
 	
-	if (!audioDeviceInfo.isNull())
+	if (!d->audioDeviceInfo.isNull())
 	{
-		hr = setupAudioStream(writer, audioChannelCount, 16, 44100, &audioStreamIndex);
+		hr = setupAudioStream(writer, d->audioFormat, &d->audioStreamIndex);
 		if (FAILED(hr))
 		{
 			qWarning() << "setupAudioStream failed" << hr;
@@ -280,54 +308,18 @@ bool Recorder::start(QCamera * camera, const QAudioDeviceInfo & audioDeviceInfo,
 		return false;
 	}
 
-	d->imageCapture = std::make_unique<QCameraImageCapture>(camera);
-	d->imageCapture->setCaptureDestination(QCameraImageCapture::CaptureToBuffer);
-
-	connect(d->imageCapture.get(), &QCameraImageCapture::readyForCaptureChanged, this, [d](bool ready){
-		if (ready && d->imageCapture)
-		{
-			d->imageCapture->capture();
-		}
-	}, Qt::QueuedConnection);
-
-	connect(d->imageCapture.get(), &QCameraImageCapture::imageCaptured, this, [=](int id, QImage image){
-		if (d->writer)
-		{
-			if (d->imageFilter)
-			{
-				d->imageFilter->filter(image);
-			}
-			writeVideoFrame(videoStreamIndex, image);
-		}
-	});
+	// frames durations in 100-nanosecond units
+	// 1024 - AAC frame sample count
+	d->audioFrameDuration = 1024.0 * 1000 * 1000 * 10 / audioFormat.channelCount() / audioFormat.sampleRate();
+	d->videoFrameDuration = 1000.0 * 1000 * 10 / FramesPerSecond;
 
 	d->writer = writer;
 	d->recording = true;
 	d->videoClock = 0;
-	d->imageCapture->capture();
+	d->audioClock = 0;
 
-	if (!audioDeviceInfo.isNull())
-	{
-		QAudioFormat format;
-		format.setSampleRate(44100);
-		format.setSampleSize(16);
-		format.setChannelCount(audioChannelCount);
-		format.setSampleType(QAudioFormat::SignedInt);
-		format.setCodec("audio/pcm");
-		d->audioInput = std::make_unique<QAudioInput>(audioDeviceInfo, format);
-		d->audioClock = 0;
-		QIODevice * audioDevice = d->audioInput->start();
-		connect(audioDevice, &QIODevice::readyRead, this, [=](){
-			d->audioBuffer += audioDevice->readAll();
-			int frameSize = 1024 * audioChannelCount;
-			while (d->audioBuffer.size() > frameSize)
-			{
-				QByteArray data = d->audioBuffer.left(frameSize);
-				d->audioBuffer.remove(0, frameSize);
-				writeAudioFrame(audioStreamIndex, data);
-			}
-		});
-	}
+	startImageCapture();
+	startAudioCapture();
 
 	return true;
 }
@@ -346,13 +338,65 @@ void Recorder::stop()
 	d->audioInput.reset();
 
 	d->recording = false;
-
-	d->audioBuffer.clear();
 }
 
 bool Recorder::isRecording() const
 {
 	return d_func()->recording;
+}
+
+void Recorder::startImageCapture()
+{
+	Q_D(Recorder);
+
+	d->imageCapture = std::make_unique<QCameraImageCapture>(d->camera);
+	d->imageCapture->setCaptureDestination(QCameraImageCapture::CaptureToBuffer);
+	d->imageCapture->setBufferFormat(QVideoFrame::Format_RGB32);
+	d->imageCapture->capture();
+
+	connect(d->imageCapture.get(), &QCameraImageCapture::readyForCaptureChanged, d->imageCapture.get(), [d](bool ready){
+		if (ready && d->imageCapture)
+		{
+			d->imageCapture->capture();
+		}
+	}, Qt::QueuedConnection);
+
+	connect(d->imageCapture.get(), &QCameraImageCapture::imageCaptured, d->imageCapture.get(), [d, this](int id, QImage image){
+		if (d->writer)
+		{
+			image = image.scaled(VideoResolution);
+			if (d->imageFilter)
+			{
+				d->imageFilter->filter(image);
+			}
+			writeVideoFrame(d->videoStreamIndex, image);
+		}
+	});
+}
+
+void Recorder::startAudioCapture()
+{
+	Q_D(Recorder);
+
+	if (d->audioDeviceInfo.isNull())
+	{
+		d->audioInput = nullptr;
+		return;
+	}
+	
+	d->audioInput = std::make_unique<QAudioInput>(d->audioDeviceInfo, d->audioFormat);
+	QIODevice * audioDevice = d->audioInput->start();
+	d->audioBuffer.clear();
+	connect(audioDevice, &QIODevice::readyRead, audioDevice, [=](){
+		d->audioBuffer += audioDevice->readAll();
+		int frameSize = 1024 * d->audioFormat.channelCount();
+		while (d->audioBuffer.size() > frameSize)
+		{
+			QByteArray data = d->audioBuffer.left(frameSize);
+			d->audioBuffer.remove(0, frameSize);
+			writeAudioFrame(d->audioStreamIndex, data);
+		}
+	});
 }
 
 bool Recorder::writeVideoFrame(int streamIndex, const QImage & image)
@@ -403,17 +447,15 @@ bool Recorder::writeVideoFrame(int streamIndex, const QImage & image)
 		return false;
 	}
 
-	static qreal duration = 1000.0 * 1000 * 10 / 30;
-
 	hr = sample->SetSampleTime(d->videoClock);
-	d->videoClock += duration;
+	d->videoClock += d->videoFrameDuration;
 	if (FAILED(hr))
 	{
 		qWarning() << "SetSampleTime failed" << hr;
 		return false;
 	}
 
-	hr = sample->SetSampleDuration(duration);
+	hr = sample->SetSampleDuration(d->videoFrameDuration);
 	if (FAILED(hr))
 	{
 		qWarning() << "SetSampleTime failed" << hr;
@@ -477,18 +519,15 @@ bool Recorder::writeAudioFrame(int streamIndex, const QByteArray & sound)
 		return false;
 	}
 
-	// 512 = 1024 / 2 bytes per sample
-	static qreal duration = 512.0 * 1000 * 1000 * 10 / 44100;
-
 	hr = sample->SetSampleTime(d->audioClock);
-	d->audioClock += duration;
+	d->audioClock += d->audioFrameDuration;
 	if (FAILED(hr))
 	{
 		qWarning() << "SetSampleTime failed" << hr;
 		return false;
 	}
 
-	hr = sample->SetSampleDuration(duration);
+	hr = sample->SetSampleDuration(d->audioFrameDuration);
 	if (FAILED(hr))
 	{
 		qWarning() << "SetSampleTime failed" << hr;
@@ -503,6 +542,36 @@ bool Recorder::writeAudioFrame(int streamIndex, const QByteArray & sound)
 	}
 
 	return true;
+}
+
+void Recorder::setCamera(QCamera * camera)
+{
+	Q_D(Recorder);
+	d->camera = camera;
+	if (d->recording)
+	{
+		startImageCapture();
+	}
+}
+
+QCamera * Recorder::camera() const
+{
+	return d_func()->camera;
+}
+
+void Recorder::setAudioDevice(const QAudioDeviceInfo & audioDeviceInfo)
+{
+	Q_D(Recorder);
+	d->audioDeviceInfo = audioDeviceInfo;
+	if (d->recording)
+	{
+		startAudioCapture();
+	}
+}
+
+QAudioDeviceInfo Recorder::audioDevice() const
+{
+	return d_func()->audioDeviceInfo;
 }
 
 void Recorder::setImageFilter(ImageFilter * imageFilter)

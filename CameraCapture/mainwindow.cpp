@@ -1,17 +1,41 @@
 #include "mainwindow.h"
 
 #include <QCamera>
-#include <QCameraInfo>
-#include <QFileDialog>
-#include <QAudioDeviceInfo>
 #include <QAudio>
+#include <QFileDialog>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent),
 	grayscaleFilter(new GrayscaleFilter)
 {
 	ui.setupUi(this);
-	updateDeviceList();
+
+	cameraInfoList = QCameraInfo::availableCameras();
+	if (cameraInfoList.isEmpty())
+	{
+		QMessageBox::information(this, tr("Camera not found"), tr("Camera not found.\nPlease, install camera on your computer and then restart program."));
+		qApp->quit();
+		return;
+	}
+
+	selectCamera(cameraInfoList.first());
+	for (const QCameraInfo & cameraInfo : cameraInfoList)
+	{
+		ui.cameraListWidget->addItem(cameraInfo.description());
+	}
+	ui.cameraListWidget->setCurrentRow(0);
+
+	micList = QAudioDeviceInfo::availableDevices(QAudio::AudioInput);
+	for (const QAudioDeviceInfo & audioDeviceInfo : micList)
+	{
+		ui.micListWidget->addItem(audioDeviceInfo.deviceName());
+	}
+	if (!micList.isEmpty())
+	{
+		selectAudioDevice(micList.first());
+		ui.micListWidget->setCurrentRow(0);
+	}
 
 	if (ui.grayscaleCheckBox->isChecked())
 	{
@@ -29,29 +53,15 @@ MainWindow::MainWindow(QWidget *parent)
 		}
 	});
 
-	for(const QCameraInfo & cameraInfo : QCameraInfo::availableCameras())
-	{
-		selectedCamera = new QCamera(cameraInfo);
-		selectedCamera->setCaptureMode(QCamera::CaptureStillImage);
-		selectedCamera->setViewfinder(ui.viewfinder);
-		selectedCamera->start();
-		break;
-	}
-
 	connect(ui.recordButton, &QPushButton::clicked, this, &MainWindow::toggleRecord);
-}
 
-void MainWindow::updateDeviceList()
-{
-	for (const QCameraInfo & cameraInfo : QCameraInfo::availableCameras())
-	{
-		ui.cameraListWidget->addItem(cameraInfo.description());
-	}
+	connect(ui.cameraListWidget, &QListWidget::currentRowChanged, this, [this](int currentRow){
+		selectCamera(cameraInfoList.at(currentRow));
+	});
 
-	for (const QAudioDeviceInfo & audioDeviceInfo : QAudioDeviceInfo::availableDevices(QAudio::AudioInput))
-	{
-		ui.micListWidget->addItem(audioDeviceInfo.deviceName());
-	}
+	connect(ui.micListWidget, &QListWidget::currentRowChanged, this, [this](int currentRow){
+		selectAudioDevice(micList.at(currentRow));
+	});
 }
 
 void MainWindow::toggleRecord()
@@ -68,22 +78,26 @@ void MainWindow::toggleRecord()
 			ui.recordButton->setChecked(false);
 			return;
 		}
-
-		QList<QAudioDeviceInfo> availableDevices = QAudioDeviceInfo::availableDevices(QAudio::AudioInput);
-		QAudioDeviceInfo audioDeviceInfo;
-
-		int selectedMic = ui.micListWidget->currentRow();
-		if (selectedMic < ui.micListWidget->count() && selectedMic >= 0)
-		{
-			audioDeviceInfo = availableDevices[selectedMic];
-		}
 		
-		if (!recorder.start(selectedCamera, audioDeviceInfo, filename))
+		if (!recorder.start(filename))
 		{
 			ui.recordButton->setChecked(false);
+			QMessageBox::warning(this, tr("Record failed"), tr("Record failed.\nPlease, check program output log for more information"));
 		}
 	}
+}
 
-	ui.cameraListWidget->setDisabled(recorder.isRecording());
-	ui.micListWidget->setDisabled(recorder.isRecording());
+void MainWindow::selectCamera(const QCameraInfo & cameraInfo)
+{
+	selectedCamera = std::make_unique<QCamera>(cameraInfo);
+	selectedCamera->setCaptureMode(QCamera::CaptureStillImage);
+	selectedCamera->setViewfinder(ui.viewfinder);
+	selectedCamera->start();
+
+	recorder.setCamera(selectedCamera.get());
+}
+
+void MainWindow::selectAudioDevice(const QAudioDeviceInfo & audioDeviceInfo)
+{
+	recorder.setAudioDevice(audioDeviceInfo);
 }

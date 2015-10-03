@@ -17,14 +17,22 @@ public:
 	~Recorder();
 
 public slots:
-	bool start(QCamera * camera, const QAudioDeviceInfo & audioDeviceInfo, const QString & filename);
+	bool start(const QString & filename);
 	void stop();
 	bool isRecording() const;
+
+	void setCamera(QCamera * camera);
+	QCamera * camera() const;
+
+	void setAudioDevice(const QAudioDeviceInfo & audioDeviceInfo);
+	QAudioDeviceInfo audioDevice() const;
 
 	void setImageFilter(ImageFilter * imageFilter);
 	ImageFilter * imageFilter();
 
 private:
+	void startImageCapture();
+	void startAudioCapture();
 	bool writeVideoFrame(int streamIndex, const QImage & image);
 	bool writeAudioFrame(int streamIndex, const QByteArray & sound);
 

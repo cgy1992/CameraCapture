@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <QMainWindow>
+#include <QCameraInfo>
+#include <QAudioDeviceInfo>
 
 #include "ui_mainwindow.h"
 #include "recorder.h"
@@ -15,12 +17,15 @@ public:
 	MainWindow(QWidget *parent = 0);
 
 private slots:
-	void updateDeviceList();
 	void toggleRecord();
+	void selectCamera(const QCameraInfo & cameraInfo);
+	void selectAudioDevice(const QAudioDeviceInfo & audioDeviceInfo);
 
 private:
 	Ui::MainWindow ui;
 	Recorder recorder;
-	QCamera * selectedCamera;
+	std::unique_ptr<QCamera> selectedCamera;
 	std::unique_ptr<GrayscaleFilter> grayscaleFilter;
+	QList<QCameraInfo> cameraInfoList;
+	QList<QAudioDeviceInfo> micList;
 };
