@@ -1,5 +1,7 @@
 #pragma once
 
+#include "imagefilter.h"
+
 #include <QObject>
 #include <QScopedPointer>
 #include <QCamera>
@@ -19,9 +21,12 @@ public slots:
 	void stop();
 	bool isRecording() const;
 
+	void setImageFilter(ImageFilter * imageFilter);
+	ImageFilter * imageFilter();
+
 private:
-	void writeVideoFrame(int streamIndex, const QImage & image);
-	void writeAudioFrame(int streamIndex, const QByteArray & sound);
+	bool writeVideoFrame(int streamIndex, const QImage & image);
+	bool writeAudioFrame(int streamIndex, const QByteArray & sound);
 
 private:
 	Q_DECLARE_PRIVATE(Recorder)

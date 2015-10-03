@@ -2,17 +2,32 @@
 
 #include <QCamera>
 #include <QCameraInfo>
-#include <QDebug>
-#include <QDateTime>
 #include <QFileDialog>
 #include <QAudioDeviceInfo>
 #include <QAudio>
 
 MainWindow::MainWindow(QWidget *parent)
-	: QMainWindow(parent)
+	: QMainWindow(parent),
+	grayscaleFilter(new GrayscaleFilter)
 {
 	ui.setupUi(this);
 	updateDeviceList();
+
+	if (ui.grayscaleCheckBox->isChecked())
+	{
+		recorder.setImageFilter(grayscaleFilter.get());
+	}
+
+	connect(ui.grayscaleCheckBox, &QCheckBox::clicked, this, [this](bool checked){
+		if (checked)
+		{
+			recorder.setImageFilter(grayscaleFilter.get());
+		}
+		else
+		{
+			recorder.setImageFilter(nullptr);
+		}
+	});
 
 	for(const QCameraInfo & cameraInfo : QCameraInfo::availableCameras())
 	{

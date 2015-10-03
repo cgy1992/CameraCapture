@@ -88,6 +88,7 @@
     <ClCompile Include="GeneratedFiles\Release\moc_recorder.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="grayscalefilter.cpp" />
     <ClCompile Include="mainwindow.cpp" />
     <ClCompile Include="GeneratedFiles\qrc_cameracapture.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -136,6 +137,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_mainwindow.h" />
+    <ClInclude Include="grayscalefilter.h" />
+    <ClInclude Include="imagefilter.h" />
     <CustomBuild Include="recorder.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Moc%27ing recorder.h...</Message>

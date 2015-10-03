@@ -1,8 +1,11 @@
 #pragma once
 
+#include <memory>
 #include <QMainWindow>
+
 #include "ui_mainwindow.h"
 #include "recorder.h"
+#include "grayscalefilter.h"
 
 class MainWindow : public QMainWindow
 {
@@ -19,4 +22,5 @@ private:
 	Ui::MainWindow ui;
 	Recorder recorder;
 	QCamera * selectedCamera;
+	std::unique_ptr<GrayscaleFilter> grayscaleFilter;
 };
