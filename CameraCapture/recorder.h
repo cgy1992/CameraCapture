@@ -1,16 +1,11 @@
 #pragma once
 
 #include <QObject>
+#include <QScopedPointer>
 #include <QCamera>
 #include <QAudioDeviceInfo>
 
-#include <QAudioInput>
-#include <QCameraImageCapture>
-#include <QByteArray>
-#include <atlbase.h>
-#include <memory>
-class IMFSinkWriter;
-
+class RecorderPrivate;
 class Recorder : public QObject
 {
 	Q_OBJECT
@@ -29,12 +24,7 @@ private:
 	void writeAudioFrame(int streamIndex, const QByteArray & sound);
 
 private:
-	CComPtr<IMFSinkWriter> writer;
-	std::unique_ptr<QCameraImageCapture> imageCapture;
-	std::unique_ptr<QAudioInput> audioInput;
-	bool recording = false;
-	qreal audioClock;
-	qint64 videoClock;
-	QByteArray audioBuffer;
+	Q_DECLARE_PRIVATE(Recorder)
+	QScopedPointer<RecorderPrivate> d_ptr;
 };
 
