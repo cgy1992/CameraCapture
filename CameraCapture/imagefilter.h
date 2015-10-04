@@ -2,6 +2,7 @@
 
 #include <QImage>
 
+
 class ImageFilter
 {
 public:

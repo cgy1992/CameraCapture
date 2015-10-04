@@ -16,10 +16,9 @@
 #include <Wmcodecdsp.h>
 #include "wmfutils.h"
 
+
 namespace
 {
-	// \todo constants should be parameters of Recorder class
-
 	static const QSize VideoResolution(320, 240);
 	static const int VideoBitrate = 2500000;
 	static const int FramesPerSecond = 30;

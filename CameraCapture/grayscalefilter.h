@@ -2,6 +2,7 @@
 
 #include "imagefilter.h"
 
+
 class GrayscaleFilter : public ImageFilter
 {
 public:

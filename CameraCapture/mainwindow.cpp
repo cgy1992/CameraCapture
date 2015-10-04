@@ -5,6 +5,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
+
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent),
 	grayscaleFilter(new GrayscaleFilter)

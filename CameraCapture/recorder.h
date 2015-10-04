@@ -7,7 +7,15 @@
 #include <QCamera>
 #include <QAudioDeviceInfo>
 
+
 class RecorderPrivate;
+/**
+@brief The Recorder class is used for the recording of mpeg4 multimedia stream (H264/AAC).
+@todo Media options (fps, bitrate, etc) should be parameters of Recorder class.
+@todo Sync audio and video streams.
+@todo Make recording in separate thread.
+@todo Remove setCamera on-the-fly lag.
+*/
 class Recorder : public QObject
 {
 	Q_OBJECT
@@ -17,6 +25,9 @@ public:
 	~Recorder();
 
 public slots:
+	/**
+	@return true if record started, false if not
+	*/
 	bool start(const QString & filename);
 	void stop();
 	bool isRecording() const;

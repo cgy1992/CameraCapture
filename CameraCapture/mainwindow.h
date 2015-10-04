@@ -12,6 +12,10 @@
 #include "recorder.h"
 #include "grayscalefilter.h"
 
+/**
+@todo Volume control
+@todo Peak meter
+*/
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
