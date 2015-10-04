@@ -31,12 +31,6 @@ public slots:
 	ImageFilter * imageFilter();
 
 private:
-	void startImageCapture();
-	void startAudioCapture();
-	bool writeVideoFrame(int streamIndex, const QImage & image);
-	bool writeAudioFrame(int streamIndex, const QByteArray & sound);
-
-private:
 	Q_DECLARE_PRIVATE(Recorder)
 	QScopedPointer<RecorderPrivate> d_ptr;
 };

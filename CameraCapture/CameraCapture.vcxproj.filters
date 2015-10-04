@@ -87,5 +87,8 @@
     <ClInclude Include="grayscalefilter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="wmfutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
