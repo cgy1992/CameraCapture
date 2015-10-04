@@ -28,7 +28,7 @@ public slots:
 	QAudioDeviceInfo audioDevice() const;
 
 	void setImageFilter(ImageFilter * imageFilter);
-	ImageFilter * imageFilter();
+	ImageFilter * imageFilter() const;
 
 private:
 	Q_DECLARE_PRIVATE(Recorder)

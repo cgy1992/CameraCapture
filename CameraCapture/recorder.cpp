@@ -7,7 +7,6 @@
 #include <QAudioInput>
 #include <QCameraImageCapture>
 #include <QByteArray>
-#include <QtConcurrentRun>
 
 #include <atlbase.h>
 #include <windows.h>
@@ -311,8 +310,7 @@ void Recorder::setImageFilter(ImageFilter * imageFilter)
 	d->imageFilter = imageFilter;
 }
 
-ImageFilter * Recorder::imageFilter()
+ImageFilter * Recorder::imageFilter() const
 {
-	Q_D(Recorder);
-	return d->imageFilter;
+	return d_func()->imageFilter;
 }

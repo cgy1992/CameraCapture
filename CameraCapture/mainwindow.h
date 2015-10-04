@@ -4,6 +4,9 @@
 #include <QMainWindow>
 #include <QCameraInfo>
 #include <QAudioDeviceInfo>
+#include <QTimer>
+#include <QElapsedTimer>
+#include <QDateTime>
 
 #include "ui_mainwindow.h"
 #include "recorder.h"
@@ -20,6 +23,7 @@ private slots:
 	void toggleRecord();
 	void selectCamera(const QCameraInfo & cameraInfo);
 	void selectAudioDevice(const QAudioDeviceInfo & audioDeviceInfo);
+	void updateRecordButton();
 
 private:
 	Ui::MainWindow ui;
@@ -28,4 +32,6 @@ private:
 	std::unique_ptr<GrayscaleFilter> grayscaleFilter;
 	QList<QCameraInfo> cameraInfoList;
 	QList<QAudioDeviceInfo> micList;
+	QElapsedTimer recordTimer;
+	QTimer uiUpdateTimer;
 };

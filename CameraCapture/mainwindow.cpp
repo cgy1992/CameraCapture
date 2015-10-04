@@ -62,6 +62,10 @@ MainWindow::MainWindow(QWidget *parent)
 	connect(ui.micListWidget, &QListWidget::currentRowChanged, this, [this](int currentRow){
 		selectAudioDevice(micList.at(currentRow));
 	});
+
+	uiUpdateTimer.setInterval(1000);
+	uiUpdateTimer.setSingleShot(false);
+	connect(&uiUpdateTimer, &QTimer::timeout, this, &MainWindow::updateRecordButton);
 }
 
 void MainWindow::toggleRecord()
@@ -69,6 +73,7 @@ void MainWindow::toggleRecord()
 	if (recorder.isRecording())
 	{
 		recorder.stop();
+		uiUpdateTimer.stop();
 	}
 	else
 	{
@@ -84,7 +89,14 @@ void MainWindow::toggleRecord()
 			ui.recordButton->setChecked(false);
 			QMessageBox::warning(this, tr("Record failed"), tr("Record failed.\nPlease, check program output log for more information"));
 		}
+		else
+		{
+			recordTimer.start();
+			uiUpdateTimer.start();
+		}
 	}
+
+	updateRecordButton();
 }
 
 void MainWindow::selectCamera(const QCameraInfo & cameraInfo)
@@ -100,4 +112,18 @@ void MainWindow::selectCamera(const QCameraInfo & cameraInfo)
 void MainWindow::selectAudioDevice(const QAudioDeviceInfo & audioDeviceInfo)
 {
 	recorder.setAudioDevice(audioDeviceInfo);
+}
+
+void MainWindow::updateRecordButton()
+{
+	if (recorder.isRecording())
+	{
+		int min = recordTimer.elapsed() / 1000 / 60;
+		int sec = recordTimer.elapsed() / 1000 % 60;
+		ui.recordButton->setText(tr("STOP RECORD (%1:%2)").arg(min, 2, 10, QChar('0')).arg(sec, 2, 10, QChar('0')));
+	}
+	else
+	{
+		ui.recordButton->setText(tr("RECORD"));
+	}
 }
